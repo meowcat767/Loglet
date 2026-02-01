@@ -4,7 +4,7 @@ import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
-@Database(entities = {ActivityLog.class, TrackPoint.class, Trip.class}, version = 4)
+@Database(entities = {ActivityLog.class, TrackPoint.class, Trip.class}, version = 7, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
     private static volatile AppDatabase INSTANCE;
 

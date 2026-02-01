@@ -23,8 +23,7 @@ import org.osmdroid.views.overlay.Polyline;
 import java.util.ArrayList;
 import java.util.List;
 
-import site.meowcat.loglet.data.AppDatabase;
-import site.meowcat.loglet.viewmodel.LogViewModel;
+import site.meowcat.loglet.data.LogViewModel;
 
 public class StreamLogActivity extends AppCompatActivity {
 
@@ -76,7 +75,7 @@ public class StreamLogActivity extends AppCompatActivity {
 
         // Observe logs to show as pins
         LogViewModel viewModel = new ViewModelProvider(this).get(LogViewModel.class);
-        viewModel.getLogs().observe(this, logs -> {
+        viewModel.getAllLogs().observe(this, logs -> {
             if (logs != null) {
                 // Clear existing markers (pins) but keep the line
                 map.getOverlays().removeIf(overlay -> overlay instanceof Marker);
@@ -94,10 +93,10 @@ public class StreamLogActivity extends AppCompatActivity {
         });
 
         // Observe track points
-        AppDatabase.getInstance(this).trackPointDao().getAllTrackIds().observe(this, ids -> {
+        viewModel.getAllTrackIds().observe(this, ids -> {
             if (ids != null && !ids.isEmpty()) {
                 long latestId = ids.get(0);
-                AppDatabase.getInstance(this).trackPointDao().getPointsForTrack(latestId).observe(this, points -> {
+                viewModel.getPointsForTrack(latestId).observe(this, points -> {
                     if (points != null && !points.isEmpty()) {
                         List<GeoPoint> geoPoints = new ArrayList<>();
                         for (site.meowcat.loglet.data.TrackPoint p : points) {
@@ -115,7 +114,10 @@ public class StreamLogActivity extends AppCompatActivity {
     }
 
     private void startTracking() {
+        long newTripId = System.currentTimeMillis();
+        currentTrackId = newTripId;
         Intent serviceIntent = new Intent(this, TrackingService.class);
+        serviceIntent.putExtra("tripId", newTripId);
         ContextCompat.startForegroundService(this, serviceIntent);
     }
 

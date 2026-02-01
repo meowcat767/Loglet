@@ -19,10 +19,7 @@ import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
-import site.meowcat.loglet.data.AppDatabase;
+import site.meowcat.loglet.data.LogRepository;
 import site.meowcat.loglet.data.TrackPoint;
 
 public class TrackingService extends Service {
@@ -30,11 +27,12 @@ public class TrackingService extends Service {
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
     private long currentTripId;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private LogRepository repository;
 
     @Override
     public void onCreate() {
         super.onCreate();
+        repository = new LogRepository(getApplicationContext());
         createNotificationChannel();
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -50,10 +48,8 @@ public class TrackingService extends Service {
     }
 
     private void saveTrackPoint(Location loc) {
-        executor.execute(() -> {
-            TrackPoint point = new TrackPoint(currentTripId, loc.getLatitude(), loc.getLongitude(), System.currentTimeMillis());
-            AppDatabase.getInstance(getApplicationContext()).trackPointDao().insert(point);
-        });
+        TrackPoint point = new TrackPoint(currentTripId, loc.getLatitude(), loc.getLongitude(), System.currentTimeMillis());
+        repository.insertTrackPoint(point);
     }
 
     @Override

@@ -15,19 +15,19 @@ public interface ActivityLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insert(ActivityLog activityLog);
 
-    @Query("SELECT * FROM ActivityLog WHERE startTime >= :start AND startTime < :end ORDER BY startTime DESC")
+    @Query("SELECT * FROM activity_logs WHERE startTime >= :start AND startTime < :end ORDER BY startTime DESC")
     LiveData<List<ActivityLog>> getLogsByDateRange(long start, long end);
 
-    @Query("SELECT * FROM ActivityLog ORDER BY startTime DESC")
+    @Query("SELECT * FROM activity_logs ORDER BY startTime DESC")
     LiveData<List<ActivityLog>> getAllLogs();
 
     @Delete
     void delete(ActivityLog log);
 
     // It's safer to return an int to see how many rows were actually deleted
-    @Query("DELETE FROM ActivityLog WHERE startTime >= :start AND startTime < :end")
+    @Query("DELETE FROM activity_logs WHERE startTime >= :start AND startTime < :end")
     int deleteLogsByDateRange(long start, long end);
 
-    @Query("DELETE FROM ActivityLog")
+    @Query("DELETE FROM activity_logs")
     void clearAll();
 }
