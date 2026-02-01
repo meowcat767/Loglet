@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -45,6 +46,8 @@ public class MainActivity extends AppCompatActivity {
     private boolean isTracking = false;
     private long currentTripId = -1;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private TextView tvDistance;
+    private TextView tvTotalDistance;
 
     private final ActivityResultLauncher<String[]> locationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -83,6 +86,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void initMap() {
         map = findViewById(R.id.map);
+        tvDistance = findViewById(R.id.tvDistance);
+        tvTotalDistance = findViewById(R.id.tvTotalDistance);
         map.setTileSource(TileSourceFactory.MAPNIK);
         map.setMultiTouchControls(true);
         map.getController().setZoom(15.0);
@@ -101,6 +106,7 @@ public class MainActivity extends AppCompatActivity {
         map.getOverlays().add(trackLine);
 
         observeLogs();
+        observeAllTripsForTotalDistance();
     }
 
     private void setupButtons() {
@@ -173,11 +179,15 @@ public class MainActivity extends AppCompatActivity {
             if (trip != null) {
                 trip.endTime = System.currentTimeMillis();
                 AppDatabase.getInstance(this).tripDao().update(trip);
+                
+                // Update total distance after trip ends
+                runOnUiThread(() -> observeAllTripsForTotalDistance());
             }
             currentTripId = -1;
         });
         
         trackLine.setPoints(new ArrayList<>());
+        tvDistance.setText("Distance: 0 m");
         map.invalidate();
     }
 
@@ -189,6 +199,7 @@ public class MainActivity extends AppCompatActivity {
                     geoPoints.add(new GeoPoint(p.latitude, p.longitude));
                 }
                 trackLine.setPoints(geoPoints);
+                updateDistanceDisplay(points);
                 map.invalidate();
             }
         });
@@ -209,6 +220,79 @@ public class MainActivity extends AppCompatActivity {
                 map.invalidate();
             }
         });
+    }
+
+    private void observeAllTripsForTotalDistance() {
+        AppDatabase.getInstance(this).tripDao().getAllTrips().observe(this, trips -> {
+            if (trips != null) {
+                executor.execute(() -> {
+                    double totalDistance = 0;
+                    for (Trip trip : trips) {
+                        List<site.meowcat.loglet.data.TrackPoint> points = 
+                            AppDatabase.getInstance(this).trackPointDao().getPointsForTripSync(trip.id);
+                        if (points != null && points.size() >= 2) {
+                            totalDistance += calculateTotalDistanceFromPoints(points);
+                        }
+                    }
+                    final double finalDistance = totalDistance;
+                    runOnUiThread(() -> tvTotalDistance.setText("Total: " + formatDistance(finalDistance)));
+                });
+            }
+        });
+    }
+
+    private double calculateTotalDistanceFromPoints(List<site.meowcat.loglet.data.TrackPoint> points) {
+        double totalDistance = 0;
+        for (int i = 1; i < points.size(); i++) {
+            GeoPoint prevPoint = new GeoPoint(points.get(i - 1).latitude, points.get(i - 1).longitude);
+            GeoPoint currentPoint = new GeoPoint(points.get(i).latitude, points.get(i).longitude);
+            totalDistance += calculateDistanceBetweenPoints(prevPoint, currentPoint);
+        }
+        return totalDistance;
+    }
+
+    private double calculateDistanceBetweenPoints(GeoPoint point1, GeoPoint point2) {
+        double lat1 = point1.getLatitude();
+        double lon1 = point1.getLongitude();
+        double lat2 = point2.getLatitude();
+        double lon2 = point2.getLongitude();
+
+        final double R = 6371000; // Earth's radius in meters
+
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                   Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                   Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c;
+    }
+
+    private String formatDistance(double meters) {
+        if (meters < 1000) {
+            return String.format("%.0f m", meters);
+        } else {
+            return String.format("%.2f km", meters / 1000);
+        }
+    }
+
+    private void updateDistanceDisplay(List<site.meowcat.loglet.data.TrackPoint> points) {
+        if (points == null || points.size() < 2) {
+            tvDistance.setText("Distance: 0 m");
+            return;
+        }
+
+        double totalDistance = 0;
+        for (int i = 1; i < points.size(); i++) {
+            GeoPoint prevPoint = new GeoPoint(points.get(i - 1).latitude, points.get(i - 1).longitude);
+            GeoPoint currentPoint = new GeoPoint(points.get(i).latitude, points.get(i).longitude);
+            totalDistance += calculateDistanceBetweenPoints(prevPoint, currentPoint);
+        }
+
+        tvDistance.setText("Distance: " + formatDistance(totalDistance));
     }
 
     @Override

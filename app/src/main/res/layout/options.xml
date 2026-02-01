@@ -29,4 +29,38 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/options_title" />
 
+    <Switch
+        android:id="@+id/unit_switch"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginEnd="32dp"
+        android:text="Use Kilometers"
+        android:textSize="18sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/clear_data_button" />
+
+    <TextView
+        android:id="@+id/total_distance_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="Total Distance Walked:"
+        android:textSize="18sp"
+        app:layout_constraintStart_toStartOf="@+id/unit_switch"
+        app:layout_constraintTop_toBottomOf="@+id/unit_switch" />
+
+    <TextView
+        android:id="@+id/total_distance_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text="0.0 mi"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toEndOf="@+id/total_distance_label"
+        app:layout_constraintTop_toTopOf="@+id/total_distance_label" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

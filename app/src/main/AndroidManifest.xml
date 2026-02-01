@@ -23,6 +23,13 @@
         android:theme="@style/Theme.Loglet">
 
         <activity
+            android:name=".OptionsActivity"
+            android:label="Options" />
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3059320394040070~1569358535"/>
+
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>

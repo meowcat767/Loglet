@@ -2,33 +2,32 @@ package site.meowcat.loglet;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.ImageView;
-import android.widget.TextView;
+import android.widget.ExpandableListView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
-import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.datepicker.MaterialDatePicker;
-
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import site.meowcat.loglet.data.ActivityLog;
-import site.meowcat.loglet.viewmodel.LogViewModel;
+import site.meowcat.loglet.data.LogViewModel;
 
-public class HistoryActivity extends AppCompatActivity implements LogAdapter.OnLogClickListener {
+public class HistoryActivity extends AppCompatActivity {
     private LogViewModel viewModel;
-    private LogAdapter adapter;
-    private TextView txtDateHeader;
-    private long selectedDateStart;
+    private HistoryAdapter adapter;
+    private ExpandableListView expandableListView;
+    private List<String> listDataHeader;
+    private Map<String, List<ActivityLog>> listDataChild;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,93 +36,96 @@ public class HistoryActivity extends AppCompatActivity implements LogAdapter.OnL
 
         viewModel = new ViewModelProvider(this).get(LogViewModel.class);
 
-        txtDateHeader = findViewById(R.id.txtDateHeader);
-        ImageView imgCalendar = findViewById(R.id.imgCalendar);
-        RecyclerView recyclerView = findViewById(R.id.recyclerViewLogs);
+        expandableListView = findViewById(R.id.expandableListView);
 
-        adapter = new LogAdapter(this);
-        recyclerView.setAdapter(adapter);
-
-        // Default to today
-        Calendar cal = Calendar.getInstance();
-        cal.set(Calendar.HOUR_OF_DAY, 0);
-        cal.set(Calendar.MINUTE, 0);
-        cal.set(Calendar.SECOND, 0);
-        cal.set(Calendar.MILLISECOND, 0);
-        updateDateSelection(cal.getTimeInMillis());
-
-        imgCalendar.setOnClickListener(v -> showDatePicker());
-        txtDateHeader.setOnClickListener(v -> showDatePicker());
+        viewModel.getAllLogs().observe(this, this::prepareDataAndSetAdapter);
 
         findViewById(R.id.toolbar).setOnClickListener(v -> finish());
-        
-        // Long click to delete the entire day
-        txtDateHeader.setOnLongClickListener(v -> {
-            showDeleteDayDialog();
+
+        expandableListView.setOnChildClickListener((parent, v, groupPosition, childPosition, id) -> {
+            ActivityLog log = (ActivityLog) adapter.getChild(groupPosition, childPosition);
+            showLogOptionsDialog(log);
             return true;
         });
-    }
 
-    private void updateDateSelection(long timeInMillis) {
-        selectedDateStart = timeInMillis;
-        long endOfDay = selectedDateStart + (24 * 60 * 60 * 1000);
-
-        SimpleDateFormat sdf = new SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault());
-        txtDateHeader.setText(sdf.format(new Date(selectedDateStart)));
-
-        viewModel.getLogs().observe(this, logs -> {
-            if (logs != null) {
-                List<ActivityLog> filtered = new ArrayList<>();
-                for (ActivityLog log : logs) {
-                    if (log.startTime >= selectedDateStart && log.startTime < endOfDay) {
-                        filtered.add(log);
-                    }
-                }
-                adapter.setLogs(filtered);
+        expandableListView.setOnItemLongClickListener((parent, view, position, id) -> {
+            if (ExpandableListView.getPackedPositionType(id) == ExpandableListView.PACKED_POSITION_TYPE_GROUP) {
+                int groupPosition = ExpandableListView.getPackedPositionGroup(id);
+                showDeleteDayDialog(groupPosition);
+                return true;
             }
+            return false;
         });
     }
 
-    private void showDatePicker() {
-        MaterialDatePicker<Long> picker = MaterialDatePicker.Builder.datePicker()
-                .setTitleText("Select Date")
-                .setSelection(selectedDateStart)
-                .build();
+    private void prepareDataAndSetAdapter(List<ActivityLog> logs) {
+        if (logs == null || logs.isEmpty()) {
+            Toast.makeText(this, "No history to show.", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-        picker.addOnPositiveButtonClickListener(this::updateDateSelection);
-        picker.show(getSupportFragmentManager(), "DATE_PICKER");
+        listDataHeader = new ArrayList<>();
+        listDataChild = new LinkedHashMap<>();
+        SimpleDateFormat sdf = new SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault());
+
+        for (ActivityLog log : logs) {
+            String dateKey = sdf.format(new Date(log.startTime));
+            if (!listDataChild.containsKey(dateKey)) {
+                listDataChild.put(dateKey, new ArrayList<>());
+            }
+            listDataChild.get(dateKey).add(log);
+        }
+
+        listDataHeader.addAll(listDataChild.keySet());
+        Collections.sort(listDataHeader, (d1, d2) -> {
+            try {
+                Date date1 = sdf.parse(d1);
+                Date date2 = sdf.parse(d2);
+                return date2.compareTo(date1); // Sort descending
+            } catch (ParseException e) {
+                return 0;
+            }
+        });
+
+        adapter = new HistoryAdapter(this, listDataHeader, listDataChild);
+        expandableListView.setAdapter(adapter);
     }
 
-    @Override
-    public void onLogClick(ActivityLog log) {
+    private void showLogOptionsDialog(ActivityLog log) {
         new AlertDialog.Builder(this)
                 .setTitle("Log Options")
-                .setMessage("Choose an action for this log.")
-                .setPositiveButton("View on Map", (d, w) -> {
-                    Intent intent = new Intent(this, LogDetailActivity.class);
-                    intent.putExtra("label", log.label);
-                    intent.putExtra("lat", log.latitude);
-                    intent.putExtra("lng", log.longitude);
-                    intent.putExtra("time", log.startTime);
-                    startActivity(intent);
+                .setItems(new CharSequence[]{"View Details", "Delete Log"}, (dialog, which) -> {
+                    switch (which) {
+                        case 0: // View Details
+                            Intent intent = new Intent(this, LogDetailActivity.class);
+                            intent.putExtra("logId", log.id);
+                            startActivity(intent);
+                            break;
+                        case 1: // Delete Log
+                            viewModel.delete(log);
+                            Toast.makeText(this, "Log deleted", Toast.LENGTH_SHORT).show();
+                            break;
+                    }
                 })
-                .setNegativeButton("Delete Log", (d, w) -> {
-                    viewModel.deleteLog(log);
-                    Toast.makeText(this, "Log deleted", Toast.LENGTH_SHORT).show();
-                })
-                .setNeutralButton("Cancel", null)
                 .show();
     }
 
-    private void showDeleteDayDialog() {
-        String dateStr = new SimpleDateFormat("MMMM dd", Locale.getDefault()).format(new Date(selectedDateStart));
+    private void showDeleteDayDialog(int groupPosition) {
+        String dateStr = listDataHeader.get(groupPosition);
         new AlertDialog.Builder(this)
                 .setTitle("Clear Day")
                 .setMessage("Delete all logs for " + dateStr + "?")
                 .setPositiveButton("Delete All", (d, w) -> {
-                    long endOfDay = selectedDateStart + (24 * 60 * 60 * 1000);
-                    viewModel.deleteLogsByDateRange(selectedDateStart, endOfDay);
-                    Toast.makeText(this, "Cleared logs for " + dateStr, Toast.LENGTH_SHORT).show();
+                    try {
+                        SimpleDateFormat sdf = new SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault());
+                        Date date = sdf.parse(dateStr);
+                        long startTime = date.getTime();
+                        long endTime = startTime + (24 * 60 * 60 * 1000);
+                        viewModel.deleteLogsByDateRange(startTime, endTime);
+                        Toast.makeText(this, "Cleared logs for " + dateStr, Toast.LENGTH_SHORT).show();
+                    } catch (ParseException e) {
+                        Toast.makeText(this, "Error deleting logs", Toast.LENGTH_SHORT).show();
+                    }
                 })
                 .setNegativeButton("Cancel", null)
                 .show();

@@ -39,7 +39,23 @@ public class LogRepository {
         return trackPointDao.getPointsForTrack(trackId);
     }
 
+    public LiveData<List<TrackPoint>> getAllTrackPoints() {
+        return trackPointDao.getAllTrackPoints();
+    }
+
+    public void delete(ActivityLog log) {
+        executor.execute(() -> activityLogDao.delete(log));
+    }
+
+    public void deleteLogsByDateRange(long start, long end) {
+        executor.execute(() -> activityLogDao.deleteLogsByDateRange(start, end));
+    }
+
     public void clearAllLogs() {
         executor.execute(activityLogDao::clearAll);
+    }
+
+    public void clearAllTrackPoints() {
+        executor.execute(trackPointDao::clearAll);
     }
 }

@@ -18,4 +18,13 @@ public interface TrackPointDao {
 
     @Query("SELECT * FROM TrackPoint WHERE trackId = :trackId ORDER BY timestamp ASC")
     LiveData<List<TrackPoint>> getPointsForTrack(long trackId);
+
+    @Query("SELECT * FROM TrackPoint WHERE trackId = :trackId ORDER BY timestamp ASC")
+    List<TrackPoint> getPointsForTripSync(int trackId);
+
+    @Query("SELECT * FROM TrackPoint ORDER BY timestamp ASC")
+    LiveData<List<TrackPoint>> getAllTrackPoints();
+
+    @Query("DELETE FROM TrackPoint")
+    void clearAll();
 }

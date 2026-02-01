@@ -23,7 +23,19 @@ public class LogViewModel extends AndroidViewModel {
         return repository.getAllTrackIds();
     }
 
+    public LiveData<List<TrackPoint>> getAllTrackPoints() {
+        return repository.getAllTrackPoints();
+    }
+
     public void insert(ActivityLog log) {repository.insert(log); }
+
+    public void delete(ActivityLog log) {
+        repository.delete(log);
+    }
+
+    public void deleteLogsByDateRange(long start, long end) {
+        repository.deleteLogsByDateRange(start, end);
+    }
 
     // use a switchmap to get points whenever id changes
     public LiveData<List<TrackPoint>> getPointsForTrack(long trackId) {
